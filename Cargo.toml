@@ -1,0 +1,20 @@
+[package]
+name = "nemo-zoxide"
+version = "0.1.0"
+edition = "2024"
+description = "Change Nemo location using zoxide"
+license = "AGPL-3.0-or-later"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+gio-sys = "0.22.9"
+glib-sys = "0.22.9"
+gobject-sys = "0.22.9"
+gdk-sys = "0.19.0"
+gtk-sys = "0.19.0"
+libc = "0.2.189"
+
+[build-dependencies]
+pkg-config = "0.3.34"
