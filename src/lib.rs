@@ -16,19 +16,19 @@
 use glib::{Type, TypeModule, ffi::GType, gobject_ffi::GTypeModule, translate::*};
 use libc::c_int;
 use nemo_extension::NemoZoxide;
-use std::sync::RwLock;
+use std::sync::OnceLock;
 
 mod nemo;
 mod nemo_extension;
 mod zoxide;
 
-static REGISTERED_TYPE: RwLock<Option<Type>> = RwLock::new(None);
+static REGISTERED_TYPE: OnceLock<Type> = OnceLock::new();
 
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
     let module = unsafe { TypeModule::from_glib_none(module) };
-    *REGISTERED_TYPE.write().unwrap() = Some(NemoZoxide::register_on(&module));
+    REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module));
 }
 
 #[unsafe(no_mangle)]
@@ -37,7 +37,7 @@ pub extern "C" fn nemo_module_shutdown() {}
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_list_types(types: *mut *const GType, num_types: *mut c_int) {
-    if let Some(registered_type) = *REGISTERED_TYPE.read().unwrap() {
+    if let Some(registered_type) = REGISTERED_TYPE.get() {
         let registered_type = registered_type.into_glib();
         unsafe {
             *types = &registered_type;
