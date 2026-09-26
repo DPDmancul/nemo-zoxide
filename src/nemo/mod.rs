@@ -13,18 +13,23 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use gio_sys::GFile;
-use glib_sys::{GList, GType, gpointer};
-use gtk_sys::GtkWidget;
+use glib::{
+    ffi::{GList, gpointer},
+    object::ObjectType,
+};
+use gtk::{
+    Window,
+    gio::{File, ffi::GFile},
+};
 use std::{ffi::c_int, ptr};
+
+pub mod menu_provider;
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 struct NemoWindowSlot(gpointer);
 
 unsafe extern "C" {
-    pub fn nemo_menu_provider_get_type() -> GType;
-
     fn nemo_window_get_active_slot(window: gpointer) -> NemoWindowSlot;
 
     fn nemo_window_slot_open_location_full(
@@ -37,8 +42,9 @@ unsafe extern "C" {
     );
 }
 
-pub fn change_location(window: *mut GtkWidget, location: *mut GFile) {
-    let slot = unsafe { nemo_window_get_active_slot(window as gpointer) };
+pub fn change_location(window: &Window, location: &File) {
+    let slot = unsafe { nemo_window_get_active_slot(window.as_ptr() as gpointer) };
+    let location = location.as_ptr();
 
     if !slot.0.is_null() {
         unsafe {

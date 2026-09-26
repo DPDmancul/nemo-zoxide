@@ -13,20 +13,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use glib_sys::GType;
-use gobject_sys::GTypeModule;
+use glib::{Type, TypeModule, ffi::GType, gobject_ffi::GTypeModule, translate::*};
 use libc::c_int;
+use nemo_extension::NemoZoxide;
 use std::sync::RwLock;
 
 mod nemo;
 mod nemo_extension;
 mod zoxide;
 
-static REGISTERED_TYPE: RwLock<GType> = RwLock::new(0);
+static REGISTERED_TYPE: RwLock<Option<Type>> = RwLock::new(None);
 
 #[unsafe(no_mangle)]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
-    *REGISTERED_TYPE.write().unwrap() = nemo_extension::register(module);
+    let module = unsafe { TypeModule::from_glib_none(module) };
+    *REGISTERED_TYPE.write().unwrap() = Some(NemoZoxide::register_on(&module));
 }
 
 #[unsafe(no_mangle)]
@@ -35,10 +37,11 @@ pub extern "C" fn nemo_module_shutdown() {}
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_list_types(types: *mut *const GType, num_types: *mut c_int) {
-    let registered_type = REGISTERED_TYPE.read().unwrap();
-
-    unsafe {
-        *types = &*registered_type;
-        *num_types = 1;
+    if let Some(registered_type) = *REGISTERED_TYPE.read().unwrap() {
+        let registered_type = registered_type.into_glib();
+        unsafe {
+            *types = &registered_type;
+            *num_types = 1;
+        }
     }
 }

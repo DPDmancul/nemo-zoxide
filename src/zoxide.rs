@@ -13,25 +13,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use gio_sys::g_file_new_for_path;
-use gobject_sys::{GObject, g_object_unref};
-use gtk_sys::GtkWidget;
-use std::ffi::CString;
+use gtk::{Window, gio::File};
+use std::path::PathBuf;
 
 use crate::nemo;
 
-pub fn start(window: *mut GtkWidget) {
+pub fn start(window: &Window) {
     if let Some(path) = open_modal() {
-        let location = unsafe { g_file_new_for_path(path.as_ptr()) };
-        if !location.is_null() {
-            nemo::change_location(window, location);
-            unsafe {
-                g_object_unref(location as *mut GObject);
-            }
-        }
+        let location = File::for_path(path);
+        nemo::change_location(window, &location);
     }
 }
 
-fn open_modal() -> Option<CString> {
-    Some(CString::from(c"/")) // TODO
+fn open_modal() -> Option<PathBuf> {
+    Some(PathBuf::from("/")) // TODO
 }
