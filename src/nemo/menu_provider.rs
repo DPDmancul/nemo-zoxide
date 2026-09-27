@@ -32,7 +32,6 @@ mod ffi {
         get_file_items: gpointer,
         pub get_background_items:
             Option<unsafe extern "C" fn(gpointer, *mut GtkWidget, gpointer) -> gpointer>,
-        get_item_providers: gpointer,
     }
 
     unsafe impl InterfaceStruct for Interface {
@@ -51,7 +50,7 @@ mod imp {
     pub struct MenuProvider;
 
     impl ObjectInterface for MenuProvider {
-        const NAME: &'static str = "NemoMenuProviderIface";
+        const NAME: &'static str = "NemoMenuProviderInterface";
         type Prerequisites = ();
         type Instance = ();
         type Interface = super::ffi::Interface;
