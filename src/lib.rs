@@ -22,25 +22,25 @@ mod nemo;
 mod nemo_extension;
 mod zoxide;
 
-static REGISTERED_TYPE: OnceLock<Type> = OnceLock::new();
+static REGISTERED_TYPE: OnceLock<GType> = OnceLock::new();
 
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
     let module = unsafe { TypeModule::from_glib_none(module) };
-    REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module));
+    REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module).into_glib());
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn nemo_module_shutdown() {}
+pub extern "C" fn nemo_module_shutdown() {
+}
 
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_list_types(types: *mut *const GType, num_types: *mut c_int) {
     if let Some(registered_type) = REGISTERED_TYPE.get() {
-        let registered_type = registered_type.into_glib();
         unsafe {
-            *types = &registered_type;
+            *types = registered_type;
             *num_types = 1;
         }
     }

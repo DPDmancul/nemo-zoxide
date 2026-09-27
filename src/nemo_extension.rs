@@ -77,7 +77,11 @@ glib::wrapper! {
 
 impl NemoZoxide {
     pub fn register_on(module: &TypeModule) -> Type {
-        imp::NemoZoxide::on_implementation_load(module);
+        if !imp::NemoZoxide::on_implementation_load(module) {
+            eprintln!("Failed to register NemoZoxide");
+            return glib::Type::INVALID;
+        }
+
         imp::NemoZoxide::type_()
     }
 }
