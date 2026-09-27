@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use glib::{Type, TypeModule, ffi::GType, gobject_ffi::GTypeModule, translate::*};
+use glib::{TypeModule, ffi::GType, gobject_ffi::GTypeModule, translate::*};
 use libc::c_int;
 use nemo_extension::NemoZoxide;
 use std::sync::OnceLock;
@@ -32,8 +32,7 @@ pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn nemo_module_shutdown() {
-}
+pub extern "C" fn nemo_module_shutdown() {}
 
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
