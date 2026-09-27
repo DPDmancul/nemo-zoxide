@@ -14,13 +14,15 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use glib::{
-    Interface, Type, TypeModule, ffi::gpointer, prelude::*, subclass::prelude::*,
-    translate::FromGlibPtrNone,
+    Interface, ffi::gpointer, prelude::*, subclass::prelude::*, translate::FromGlibPtrNone,
 };
 use gtk::{Widget, Window, ffi::GtkWidget};
 
 mod ffi {
-    use glib::{ffi::gpointer, gobject_ffi::GTypeInterface};
+    use glib::{
+        ffi::{GType, gpointer},
+        gobject_ffi::GTypeInterface,
+    };
     use gtk::{ffi::GtkWidget, subclass::prelude::*};
 
     #[derive(Copy, Clone)]
@@ -36,30 +38,34 @@ mod ffi {
     unsafe impl InterfaceStruct for Interface {
         type Type = super::imp::MenuProvider;
     }
+
+    unsafe extern "C" {
+        pub fn nemo_menu_provider_get_type() -> GType;
+    }
 }
 
 mod imp {
+    use glib::translate::FromGlib;
     use gtk::subclass::prelude::*;
 
     pub struct MenuProvider;
 
-    #[glib::object_interface]
-    #[object_interface_dynamic]
     impl ObjectInterface for MenuProvider {
         const NAME: &'static str = "NemoMenuProviderIface";
+        type Prerequisites = ();
+        type Instance = ();
         type Interface = super::ffi::Interface;
+    }
+
+    unsafe impl ObjectInterfaceType for MenuProvider {
+        fn type_() -> glib::Type {
+            unsafe { glib::Type::from_glib(super::ffi::nemo_menu_provider_get_type()) }
+        }
     }
 }
 
 glib::wrapper! {
     pub struct MenuProvider(ObjectInterface<imp::MenuProvider>);
-}
-
-impl MenuProvider {
-    pub fn register_on(module: &TypeModule) -> Type {
-        imp::MenuProvider::on_implementation_load(module);
-        imp::MenuProvider::type_()
-    }
 }
 
 #[allow(unused_variables)]

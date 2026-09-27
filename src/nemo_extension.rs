@@ -16,8 +16,6 @@
 use glib::{Type, TypeModule, subclass::prelude::*};
 use gtk::glib;
 
-use crate::nemo::menu_provider::MenuProvider;
-
 mod imp {
     use glib::{Propagation, object::ObjectExt, subclass::prelude::*};
     use gtk::{
@@ -80,7 +78,6 @@ glib::wrapper! {
 impl NemoZoxide {
     pub fn register_on(module: &TypeModule) -> Type {
         imp::NemoZoxide::on_implementation_load(module);
-        MenuProvider::register_on(module);
         imp::NemoZoxide::type_()
     }
 }
