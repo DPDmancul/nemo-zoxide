@@ -13,18 +13,37 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use gtk::{Window, gio::File};
+use glib::{clone, idle_add_local_once};
+use gtk::{
+    Dialog, ResponseType, Window,
+    gio::File,
+    prelude::{DialogExt, GtkWindowExt, WidgetExt},
+};
 use std::path::PathBuf;
 
 use crate::nemo;
 
 pub fn start(window: &Window) {
-    if let Some(path) = open_modal() {
-        let location = File::for_path(path);
-        nemo::change_location(window, &location);
-    }
-}
+    let dialog = Dialog::builder()
+        .title("Zoxide")
+        .transient_for(window)
+        .modal(true)
+        .destroy_with_parent(true)
+        .build();
 
-fn open_modal() -> Option<PathBuf> {
-    Some(PathBuf::from("/")) // TODO
+    dialog.add_button("Test", gtk::ResponseType::Ok);
+
+    dialog.connect_response(clone!(
+        #[weak]
+        window,
+        move |dialog, response| {
+            if response == ResponseType::Ok {
+                let location = File::for_path(PathBuf::from("/"));
+                nemo::change_location(&window, &location);
+            }
+            dialog.close();
+        }
+    ));
+
+    dialog.show_all();
 }

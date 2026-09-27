@@ -48,6 +48,8 @@ mod imp {
         fn on_get_background_items(&self, window: &Window) {
             let key = "nemo-zoxide-shortcut";
 
+            gtk::init().expect("Cannot init GTK");
+
             if unsafe { window.data::<()>(key) }.is_none() {
                 window.connect_key_press_event(on_key_press);
                 unsafe {
