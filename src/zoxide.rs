@@ -171,6 +171,7 @@ fn call_zoxide(query: &str) -> Vec<String> {
         Command::new("zoxide")
             .arg("query")
             .arg("-l")
+            .arg("--")
             .arg(query)
             .output()
             .expect("failed to execute zoxide query")
