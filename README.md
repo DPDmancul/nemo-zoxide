@@ -2,7 +2,7 @@
 
 Use Zoxide to change Nemo location
 
-![nemo-zoxide](https://gitlab.com/-/project/86643873/uploads/a6d45c276e4e65cc408af2a8e3baedca/nemo-zoxide.png){width=825 height=574}
+<img src="https://gitlab.com/-/project/86643873/uploads/a6d45c276e4e65cc408af2a8e3baedca/nemo-zoxide.png" alt="nemo-zoxide" width="825" height="574" />
 
 ## Usage
 
