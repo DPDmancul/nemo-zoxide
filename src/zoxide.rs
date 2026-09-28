@@ -13,16 +13,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use glib::{SignalHandlerId, clone, idle_add_local_once};
+use std::{process::Command, str::FromStr};
+
+use glib::{Propagation, SignalHandlerId, clone, idle_add_local_once};
 use gtk::{
-    Align, Dialog, Label, ListBox, ListBoxRow, ResponseType, ScrolledWindow, SearchEntry, Window, builders::GridBuilder, gio::File, prelude::{
+    Align, Dialog, Label, ListBox, ListBoxRow, ResponseType, ScrolledWindow, SearchEntry, Window,
+    builders::GridBuilder,
+    gdk::keys::{self, Key},
+    gio::File,
+    prelude::{
         BoxExt, BuildableExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt,
         ListBoxExt, ListBoxRowExt, SearchEntryExt, WidgetExt,
-    }
+    },
 };
-use std::path::PathBuf;
-
-use crate::nemo;
 
 pub fn start(window: &Window) {
     // Layout
@@ -52,39 +55,47 @@ pub fn start(window: &Window) {
         .content_area()
         .pack_start(&scroll_view, true, true, 0);
 
-    // Search entry signals
+    // Query signals
+
+    search_entry.connect_search_changed(clone!(
+        #[weak]
+        list_box,
+        move |x| search(&list_box, &x.text())
+    ));
+
+    // Navigation signals
 
     search_entry.connect_previous_match(clone!(
         #[weak]
         list_box,
         move |_| select_prev(&list_box)
     ));
+
     search_entry.connect_next_match(clone!(
         #[weak]
         list_box,
         move |_| select_next(&list_box)
     ));
-    search_entry.connect_stop_search(clone!(#[weak] dialog, move |_| dialog.close()));
-    search_entry.connect_search_changed(clone!(
+
+    search_entry.connect_key_press_event(clone!(
         #[weak]
         list_box,
-        move |x| {
-            list_box.add(&{
-                let row = ListBoxRow::new();
-                let label = Label::builder()
-                    .label(x.text())
-                    .halign(Align::Start)
-                    .hexpand(true)
-                    .margin(5)
-                    .build();
-
-                row.add(&label);
-
-                row
-            });
-            list_box.show_all();
+        #[upgrade_or]
+        Propagation::Proceed,
+        move |_, event| match event.keyval() {
+            keys::constants::Up => {
+                select_prev(&list_box);
+                Propagation::Stop
+            }
+            keys::constants::Down => {
+                select_next(&list_box);
+                Propagation::Stop
+            }
+            _ => Propagation::Proceed,
         }
     ));
+
+    // Accept signals
 
     // dialog.connect_response(clone!(
     //     #[weak]
@@ -98,6 +109,17 @@ pub fn start(window: &Window) {
     //     }
     // ));
 
+    // Rejection signals
+
+    search_entry.connect_stop_search(clone!(
+        #[weak]
+        dialog,
+        move |_| dialog.close()
+    ));
+
+    // Draw
+
+    search(&list_box, "");
     dialog.show_all();
 }
 
@@ -110,13 +132,65 @@ fn current_index(list_box: &ListBox) -> i32 {
 }
 
 fn select_prev(list_box: &ListBox) {
-    if let Some(row) = list_box.row_at_index(current_index(list_box) - 1) {
-        list_box.select_row(Some(&row));
+    if let Some(row) = list_box.row_at_index((current_index(list_box) - 1).max(0)) {
+        select_row(list_box, Some(&row));
     }
 }
 
 fn select_next(list_box: &ListBox) {
     if let Some(row) = list_box.row_at_index(current_index(list_box) + 1) {
-        list_box.select_row(Some(&row));
+        select_row(list_box, Some(&row));
     }
+}
+
+fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
+    list_box.select_row(row);
+    if let Some(row) = row {
+        row.grab_focus();
+    }
+}
+
+fn search(list_box: &ListBox, query: &str) {
+    set_entries(list_box, call_zoxide(query));
+}
+
+fn call_zoxide(query: &str) -> Vec<String> {
+    String::from_utf8(
+        Command::new("zoxide")
+            .arg("query")
+            .arg("-l")
+            .arg(query)
+            .output()
+            .expect("failed to execute zoxide query")
+            .stdout,
+    )
+    .expect("Zoxide returned a non UTF-8 result")
+    .lines()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn set_entries(list_box: &ListBox, entries: Vec<impl AsRef<str>>) {
+    while let Some(row) = list_box.row_at_index(0) {
+        list_box.remove(&row);
+    }
+
+    for entry in entries {
+        list_box.add(&{
+            let row = ListBoxRow::builder().can_focus(false).build();
+            let label = Label::builder()
+                .label(entry.as_ref())
+                .halign(Align::Start)
+                .hexpand(true)
+                .margin(5)
+                .build();
+
+            row.add(&label);
+
+            row
+        });
+    }
+
+    select_row(list_box, list_box.row_at_index(0).as_ref());
+    list_box.show_all();
 }
