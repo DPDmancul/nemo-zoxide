@@ -13,19 +13,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{process::Command, str::FromStr};
+use std::process::Command;
 
-use glib::{Propagation, SignalHandlerId, clone, idle_add_local_once};
+use glib::{GString, Propagation, clone, object::Cast};
 use gtk::{
-    Align, Dialog, Label, ListBox, ListBoxRow, ResponseType, ScrolledWindow, SearchEntry, Window,
-    builders::GridBuilder,
-    gdk::keys::{self, Key},
+    Align, Dialog, Label, ListBox, ListBoxRow, ScrolledWindow, SearchEntry, Window,
+    gdk::keys::{self},
     gio::File,
     prelude::{
-        BoxExt, BuildableExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt,
-        ListBoxExt, ListBoxRowExt, SearchEntryExt, WidgetExt,
+        BinExt, BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt, ListBoxExt,
+        ListBoxRowExt, SearchEntryExt, WidgetExt,
     },
 };
+
+use crate::nemo;
 
 pub fn start(window: &Window) {
     // Layout
@@ -97,17 +98,27 @@ pub fn start(window: &Window) {
 
     // Accept signals
 
-    // dialog.connect_response(clone!(
-    //     #[weak]
-    //     window,
-    //     move |dialog, response| {
-    //         if response == ResponseType::Ok {
-    //             let location = File::for_path(PathBuf::from("/"));
-    //             nemo::change_location(&window, &location);
-    //         }
-    //         dialog.close();
-    //     }
-    // ));
+    search_entry.connect_activate(clone!(
+        #[weak]
+        list_box,
+        #[weak]
+        window,
+        #[weak]
+        dialog,
+        move |_| change_location(
+            &window,
+            &dialog,
+            list_box.selected_row().as_ref().and_then(get_row_location)
+        )
+    ));
+
+    list_box.connect_row_activated(clone!(
+        #[weak]
+        window,
+        #[weak]
+        dialog,
+        move |_, row| change_location(&window, &dialog, get_row_location(row))
+    ));
 
     // Rejection signals
 
@@ -155,6 +166,7 @@ fn search(list_box: &ListBox, query: &str) {
 }
 
 fn call_zoxide(query: &str) -> Vec<String> {
+    // TODO async or another process?
     String::from_utf8(
         Command::new("zoxide")
             .arg("query")
@@ -170,7 +182,7 @@ fn call_zoxide(query: &str) -> Vec<String> {
     .collect()
 }
 
-fn set_entries(list_box: &ListBox, entries: Vec<impl AsRef<str>>) {
+fn set_entries(list_box: &ListBox, entries: Vec<String>) {
     while let Some(row) = list_box.row_at_index(0) {
         list_box.remove(&row);
     }
@@ -179,7 +191,7 @@ fn set_entries(list_box: &ListBox, entries: Vec<impl AsRef<str>>) {
         list_box.add(&{
             let row = ListBoxRow::builder().can_focus(false).build();
             let label = Label::builder()
-                .label(entry.as_ref())
+                .label(&entry)
                 .halign(Align::Start)
                 .hexpand(true)
                 .margin(5)
@@ -193,4 +205,17 @@ fn set_entries(list_box: &ListBox, entries: Vec<impl AsRef<str>>) {
 
     select_row(list_box, list_box.row_at_index(0).as_ref());
     list_box.show_all();
+}
+
+fn get_row_location(row: &ListBoxRow) -> Option<GString> {
+    row.child()
+        .and_then(|x| x.downcast::<Label>().ok())
+        .map(|x| x.text())
+}
+
+fn change_location(window: &Window, dialog: &Dialog, location: Option<GString>) {
+    if let Some(path) = location {
+        nemo::change_location(window, &File::for_path(path));
+    }
+    dialog.close();
 }
