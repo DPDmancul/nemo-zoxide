@@ -5,6 +5,7 @@ pkgs.mkShell {
     glib
     gtk3
     nemo
+    zoxide
   ];
 }
 
