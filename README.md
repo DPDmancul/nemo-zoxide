@@ -13,7 +13,10 @@ Use Zoxide to change Nemo location
 
 ## Installation
 
-TODO
+```bash
+cargo build --release
+sudo install -Dm755 target/release/libnemo_zoxide.so /lib/nemo/extensions-3.0
+```
 
 ## Development
 
