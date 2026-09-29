@@ -13,20 +13,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{path::PathBuf, sync::mpsc};
+use std::{env, path::PathBuf, sync::mpsc};
 
-use glib::{ControlFlow, GString, Propagation, clone, idle_add_local, object::Cast};
+use glib::{ControlFlow, GString, Propagation, clone, idle_add_local, object::ObjectExt};
 use gtk::{
     Align, Dialog, Label, ListBox, ListBoxRow, ScrolledWindow, SearchEntry, Window,
     gdk::keys::{self},
     gio::{File, spawn_blocking},
     prelude::{
-        BinExt, BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt, ListBoxExt,
-        ListBoxRowExt, SearchEntryExt, WidgetExt,
+        BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, ListBoxExt, ListBoxRowExt,
+        SearchEntryExt, WidgetExt,
     },
 };
 
 use crate::{nemo, zoxide};
+
+const PATH_DATA_KEY: &str = "path";
 
 pub fn start(window: &Window) {
     // Layout
@@ -192,16 +194,29 @@ fn set_entries(list_box: &ListBox, entries: Vec<PathBuf>) {
         list_box.remove(&row);
     }
 
+    let home = env::var_os("HOME");
+
     for entry in entries {
         list_box.add(&{
             let row = ListBoxRow::builder().can_focus(false).build();
             let label = Label::builder()
-                .label(entry.to_string_lossy())
+                .label(
+                    if let Some(home) = &home
+                        && let Ok(rest) = entry.strip_prefix(home)
+                    {
+                        format!("~/{}", rest.to_string_lossy()).into()
+                    } else {
+                        entry.to_string_lossy()
+                    },
+                )
                 .halign(Align::Start)
                 .hexpand(true)
                 .margin(5)
                 .build();
 
+            unsafe {
+                row.set_data(PATH_DATA_KEY, entry);
+            }
             row.add(&label);
 
             row
@@ -212,16 +227,12 @@ fn set_entries(list_box: &ListBox, entries: Vec<PathBuf>) {
     list_box.show_all();
 }
 
-fn get_row_location(row: &ListBoxRow) -> Option<GString> {
-    row.child()
-        .and_then(|x| x.downcast::<Label>().ok())
-        .map(|x| x.text())
+fn get_row_location(row: &ListBoxRow) -> Option<PathBuf> {
+    unsafe { row.steal_data::<PathBuf>(PATH_DATA_KEY) }
 }
 
-fn change_location(window: &Window, dialog: &Dialog, location: Option<GString>) {
-    if let Some(path) = location
-        && !path.is_empty()
-    {
+fn change_location(window: &Window, dialog: &Dialog, location: Option<PathBuf>) {
+    if let Some(path) = location {
         nemo::change_location(window, &File::for_path(&path));
         zoxide::add(&path).expect("failed to call zoxide add");
     }
