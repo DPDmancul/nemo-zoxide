@@ -13,11 +13,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use glib::{GString, Propagation, clone, object::Cast};
+use std::{path::PathBuf, sync::mpsc};
+
+use glib::{ControlFlow, GString, Propagation, clone, idle_add_local, object::Cast};
 use gtk::{
     Align, Dialog, Label, ListBox, ListBoxRow, ScrolledWindow, SearchEntry, Window,
     gdk::keys::{self},
-    gio::File,
+    gio::{File, spawn_blocking},
     prelude::{
         BinExt, BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt, ListBoxExt,
         ListBoxRowExt, SearchEntryExt, WidgetExt,
@@ -54,13 +56,15 @@ pub fn start(window: &Window) {
         .content_area()
         .pack_start(&scroll_view, true, true, 0);
 
+    // Channels
+
+    let (search_sender, search_receiver) = mpsc::sync_channel(1);
+
+    search(search_sender.clone(), None);
+
     // Query signals
 
-    search_entry.connect_search_changed(clone!(
-        #[weak]
-        list_box,
-        move |x| search(&list_box, &x.text())
-    ));
+    search_entry.connect_search_changed(move |x| search(search_sender.clone(), Some(x.text())));
 
     // Navigation signals
 
@@ -128,8 +132,24 @@ pub fn start(window: &Window) {
 
     // Draw
 
-    search(&list_box, "");
     dialog.show_all();
+
+    idle_add_local(clone!(
+        #[weak]
+        list_box,
+        #[upgrade_or]
+        ControlFlow::Break,
+        move || {
+            match search_receiver.try_recv() {
+                Ok(entries) => {
+                    set_entries(&list_box, entries);
+                    ControlFlow::Continue
+                }
+                Err(mpsc::TryRecvError::Empty) => ControlFlow::Continue,
+                _ => ControlFlow::Break,
+            }
+        }
+    ));
 }
 
 fn current_index(list_box: &ListBox) -> i32 {
@@ -159,12 +179,15 @@ fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
     }
 }
 
-fn search(list_box: &ListBox, query: &str) {
-    // TODO async or another process?
-    set_entries(list_box, zoxide::query(query));
+fn search(sender: mpsc::SyncSender<Vec<PathBuf>>, query: Option<GString>) {
+    spawn_blocking(move || {
+        sender
+            .send(zoxide::query(query))
+            .expect("cannot send zoxide query result")
+    });
 }
 
-fn set_entries(list_box: &ListBox, entries: Vec<String>) {
+fn set_entries(list_box: &ListBox, entries: Vec<PathBuf>) {
     while let Some(row) = list_box.row_at_index(0) {
         list_box.remove(&row);
     }
@@ -173,7 +196,7 @@ fn set_entries(list_box: &ListBox, entries: Vec<String>) {
         list_box.add(&{
             let row = ListBoxRow::builder().can_focus(false).build();
             let label = Label::builder()
-                .label(&entry)
+                .label(entry.to_string_lossy())
                 .halign(Align::Start)
                 .hexpand(true)
                 .margin(5)
@@ -196,9 +219,11 @@ fn get_row_location(row: &ListBoxRow) -> Option<GString> {
 }
 
 fn change_location(window: &Window, dialog: &Dialog, location: Option<GString>) {
-    if let Some(path) = location {
+    if let Some(path) = location
+        && !path.is_empty()
+    {
         nemo::change_location(window, &File::for_path(&path));
-        zoxide::add(&path);
+        zoxide::add(&path).expect("failed to call zoxide add");
     }
     dialog.close();
 }

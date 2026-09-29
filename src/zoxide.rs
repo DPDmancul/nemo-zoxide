@@ -13,30 +13,29 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{io, process::Command};
+use std::{ffi::OsStr, io, os::unix::ffi::OsStrExt, path::PathBuf, process::Command};
 
-pub fn add(path: &str) -> Option<io::Error> {
+pub fn add(path: impl AsRef<OsStr>) -> io::Result<()> {
     Command::new("zoxide")
         .arg("add")
         .arg("--")
         .arg(path)
         .spawn()
-        .err()
+        .map(|_| ())
 }
 
-pub fn query(query: &str) -> Vec<String> {
-    String::from_utf8(
-        Command::new("zoxide")
-            .arg("query")
-            .arg("-l")
-            .arg("--")
-            .arg(query)
-            .output()
-            .expect("failed to execute zoxide query")
-            .stdout,
-    )
-    .expect("Zoxide returned a non UTF-8 result")
-    .lines()
-    .map(str::to_owned)
-    .collect()
+pub fn query(query: Option<impl AsRef<OsStr>>) -> Vec<PathBuf> {
+    Command::new("zoxide")
+        .arg("query")
+        .arg("-l")
+        .arg("--")
+        .args(query)
+        .output()
+        .expect("failed to execute zoxide query")
+        .stdout
+        .split(|c| *c == b'\n' || *c == b'\r')
+        .filter(|x| !x.is_empty())
+        .map(OsStr::from_bytes)
+        .map(PathBuf::from)
+        .collect()
 }
