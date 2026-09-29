@@ -1,0 +1,204 @@
+// Copyright (C) 2026 Davide Peressoni
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+use glib::{GString, Propagation, clone, object::Cast};
+use gtk::{
+    Align, Dialog, Label, ListBox, ListBoxRow, ScrolledWindow, SearchEntry, Window,
+    gdk::keys::{self},
+    gio::File,
+    prelude::{
+        BinExt, BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, LabelExt, ListBoxExt,
+        ListBoxRowExt, SearchEntryExt, WidgetExt,
+    },
+};
+
+use crate::{nemo, zoxide};
+
+pub fn start(window: &Window) {
+    // Layout
+
+    let dialog = Dialog::builder()
+        .title("Zoxide")
+        .transient_for(window)
+        .modal(true)
+        .destroy_with_parent(true)
+        .default_width(600)
+        .default_height(700)
+        .build();
+
+    let search_entry = SearchEntry::new();
+    let list_box = ListBox::new();
+
+    let scroll_view = ScrolledWindow::builder()
+        .hscrollbar_policy(gtk::PolicyType::Never)
+        .vscrollbar_policy(gtk::PolicyType::Automatic)
+        .build();
+    scroll_view.add(&list_box);
+
+    dialog
+        .content_area()
+        .pack_start(&search_entry, false, false, 0);
+    dialog
+        .content_area()
+        .pack_start(&scroll_view, true, true, 0);
+
+    // Query signals
+
+    search_entry.connect_search_changed(clone!(
+        #[weak]
+        list_box,
+        move |x| search(&list_box, &x.text())
+    ));
+
+    // Navigation signals
+
+    search_entry.connect_previous_match(clone!(
+        #[weak]
+        list_box,
+        move |_| select_prev(&list_box)
+    ));
+
+    search_entry.connect_next_match(clone!(
+        #[weak]
+        list_box,
+        move |_| select_next(&list_box)
+    ));
+
+    search_entry.connect_key_press_event(clone!(
+        #[weak]
+        list_box,
+        #[upgrade_or]
+        Propagation::Proceed,
+        move |_, event| match event.keyval() {
+            keys::constants::Up => {
+                select_prev(&list_box);
+                Propagation::Stop
+            }
+            keys::constants::Down => {
+                select_next(&list_box);
+                Propagation::Stop
+            }
+            _ => Propagation::Proceed,
+        }
+    ));
+
+    // Accept signals
+
+    search_entry.connect_activate(clone!(
+        #[weak]
+        list_box,
+        #[weak]
+        window,
+        #[weak]
+        dialog,
+        move |_| change_location(
+            &window,
+            &dialog,
+            list_box.selected_row().as_ref().and_then(get_row_location)
+        )
+    ));
+
+    list_box.connect_row_activated(clone!(
+        #[weak]
+        window,
+        #[weak]
+        dialog,
+        move |_, row| change_location(&window, &dialog, get_row_location(row))
+    ));
+
+    // Rejection signals
+
+    search_entry.connect_stop_search(clone!(
+        #[weak]
+        dialog,
+        move |_| dialog.close()
+    ));
+
+    // Draw
+
+    search(&list_box, "");
+    dialog.show_all();
+}
+
+fn current_index(list_box: &ListBox) -> i32 {
+    list_box
+        .selected_row()
+        .as_ref()
+        .map(|r| r.index())
+        .unwrap_or(-1)
+}
+
+fn select_prev(list_box: &ListBox) {
+    if let Some(row) = list_box.row_at_index((current_index(list_box) - 1).max(0)) {
+        select_row(list_box, Some(&row));
+    }
+}
+
+fn select_next(list_box: &ListBox) {
+    if let Some(row) = list_box.row_at_index(current_index(list_box) + 1) {
+        select_row(list_box, Some(&row));
+    }
+}
+
+fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
+    list_box.select_row(row);
+    if let Some(row) = row {
+        row.grab_focus();
+    }
+}
+
+fn search(list_box: &ListBox, query: &str) {
+    // TODO async or another process?
+    set_entries(list_box, zoxide::query(query));
+}
+
+fn set_entries(list_box: &ListBox, entries: Vec<String>) {
+    while let Some(row) = list_box.row_at_index(0) {
+        list_box.remove(&row);
+    }
+
+    for entry in entries {
+        list_box.add(&{
+            let row = ListBoxRow::builder().can_focus(false).build();
+            let label = Label::builder()
+                .label(&entry)
+                .halign(Align::Start)
+                .hexpand(true)
+                .margin(5)
+                .build();
+
+            row.add(&label);
+
+            row
+        });
+    }
+
+    select_row(list_box, list_box.row_at_index(0).as_ref());
+    list_box.show_all();
+}
+
+fn get_row_location(row: &ListBoxRow) -> Option<GString> {
+    row.child()
+        .and_then(|x| x.downcast::<Label>().ok())
+        .map(|x| x.text())
+}
+
+fn change_location(window: &Window, dialog: &Dialog, location: Option<GString>) {
+    if let Some(path) = location {
+        nemo::change_location(window, &File::for_path(&path));
+        zoxide::add(&path);
+    }
+    dialog.close();
+}

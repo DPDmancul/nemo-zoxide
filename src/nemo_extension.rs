@@ -26,8 +26,8 @@ mod imp {
     };
 
     use crate::{
+        dialog,
         nemo::menu_provider::{MenuProvider, MenuProviderImpl},
-        zoxide,
     };
 
     #[derive(Default)]
@@ -65,7 +65,7 @@ mod imp {
         let j_pressed = event.keyval().to_lower().to_unicode() == Some('j');
 
         if ctrl_pressed && !shift_pressed && j_pressed {
-            zoxide::start(window);
+            dialog::start(window);
             return Propagation::Stop;
         }
 

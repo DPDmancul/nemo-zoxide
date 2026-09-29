@@ -18,6 +18,7 @@ use libc::c_int;
 use nemo_extension::NemoZoxide;
 use std::sync::OnceLock;
 
+mod dialog;
 mod nemo;
 mod nemo_extension;
 mod zoxide;

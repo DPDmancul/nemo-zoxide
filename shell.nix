@@ -6,6 +6,7 @@ pkgs.mkShell {
     gtk3
     nemo
     zoxide
+    cargo
   ];
 }
 
