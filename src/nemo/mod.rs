@@ -33,7 +33,7 @@ static NEMO_API: LazyLock<NemoApi> = LazyLock::new(load_nemo_api);
 struct NemoWindowSlot(gpointer);
 
 type NemoWindowGetActiveSlot = unsafe extern "C" fn(window: gpointer) -> NemoWindowSlot;
-type NewmoWindowSlotOpenLocationFull = unsafe extern "C" fn(
+type NemoWindowSlotOpenLocationFull = unsafe extern "C" fn(
     slot: NemoWindowSlot,
     location: *mut GFile,
     flags: c_int,
@@ -44,7 +44,7 @@ type NewmoWindowSlotOpenLocationFull = unsafe extern "C" fn(
 
 struct NemoApi {
     pub window_get_active_slot: NemoWindowGetActiveSlot,
-    pub window_slot_open_location_full: NewmoWindowSlotOpenLocationFull,
+    pub window_slot_open_location_full: NemoWindowSlotOpenLocationFull,
 }
 
 pub fn change_location(window: &Window, location: &File) {
@@ -76,7 +76,7 @@ fn load_nemo_api() -> NemoApi {
             base,
             "nemo_window_get_active_slot",
         ),
-        window_slot_open_location_full: resolve_symbol::<NewmoWindowSlotOpenLocationFull>(
+        window_slot_open_location_full: resolve_symbol::<NemoWindowSlotOpenLocationFull>(
             &elf,
             base,
             "nemo_window_slot_open_location_full",
