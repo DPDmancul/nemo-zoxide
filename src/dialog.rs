@@ -227,14 +227,14 @@ fn set_entries(list_box: &ListBox, entries: Vec<PathBuf>) {
     list_box.show_all();
 }
 
-fn get_row_location(row: &ListBoxRow) -> Option<PathBuf> {
-    unsafe { row.steal_data::<PathBuf>(PATH_DATA_KEY) }
+fn get_row_location(row: &ListBoxRow) -> Option<&PathBuf> {
+    unsafe { row.data::<PathBuf>(PATH_DATA_KEY).map(|x| x.as_ref()) }
 }
 
-fn change_location(window: &Window, dialog: &Dialog, location: Option<PathBuf>) {
+fn change_location(window: &Window, dialog: &Dialog, location: Option<&PathBuf>) {
     if let Some(path) = location {
-        nemo::change_location(window, &File::for_path(&path));
-        zoxide::add(&path).expect("failed to call zoxide add");
+        nemo::change_location(window, &File::for_path(path));
+        zoxide::add(path).expect("failed to call zoxide add");
     }
     dialog.close();
 }
