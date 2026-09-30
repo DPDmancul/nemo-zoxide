@@ -15,8 +15,13 @@
 
 use std::{ffi::OsStr, io, os::unix::ffi::OsStrExt, path::PathBuf, process::Command};
 
+const ZOXIDE_CMD: &str = match option_env!("ZOXIDE_CMD") {
+    Some(x) => x,
+    None => "zoxide",
+};
+
 pub fn add(path: impl AsRef<OsStr>) -> io::Result<()> {
-    Command::new("zoxide")
+    Command::new(ZOXIDE_CMD)
         .arg("add")
         .arg("--")
         .arg(path)
@@ -25,7 +30,7 @@ pub fn add(path: impl AsRef<OsStr>) -> io::Result<()> {
 }
 
 pub fn query(query: Option<impl AsRef<OsStr>>) -> Vec<PathBuf> {
-    Command::new("zoxide")
+    Command::new(ZOXIDE_CMD)
         .arg("query")
         .arg("-l")
         .arg("--")
