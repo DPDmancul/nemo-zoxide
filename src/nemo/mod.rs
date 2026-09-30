@@ -17,7 +17,7 @@ use glib::{
     ffi::{GList, gpointer},
     object::ObjectType,
 };
-use goblin::elf::Elf;
+use goblin::{elf::Elf, elf::sym};
 use gtk::{
     Window,
     gio::{File, ffi::GFile},
@@ -122,7 +122,11 @@ fn resolve_symbol<T>(elf: &Elf<'_>, base: usize, name: &str) -> T {
     let sym = elf
         .syms
         .iter()
-        .find(|sym| sym.st_value != 0 && elf.strtab.get_at(sym.st_name) == Some(name))
+        .find(|sym| {
+            sym.st_value != 0
+                && sym.st_type() == sym::STT_FUNC
+                && elf.strtab.get_at(sym.st_name) == Some(name)
+        })
         .unwrap_or_else(|| panic!("Nemo symbol not found: {name}"));
 
     let address = base
