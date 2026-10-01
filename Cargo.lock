@@ -252,6 +252,7 @@ dependencies = [
  "glib-sys",
  "gobject-sys",
  "libc",
+ "log",
  "memchr",
  "smallvec",
 ]
@@ -408,6 +409,7 @@ dependencies = [
  "goblin",
  "gtk",
  "libc",
+ "log",
  "pkg-config",
 ]
 
