@@ -19,6 +19,7 @@ use glib::{
 };
 use libc::c_int;
 use nemo_extension::NemoZoxide;
+use std::panic;
 use std::sync::{Once, OnceLock};
 
 mod dialog;
@@ -37,6 +38,10 @@ pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
     INIT.call_once(|| {
         log::set_logger(&GLIB_LOGGER).expect("cannot setup logger");
         log::set_max_level(log::LevelFilter::Debug);
+
+        panic::set_hook(Box::new(|info| {
+            log::error!("{}", info);
+        }));
     });
 
     if let Err(_e) = nemo::try_initialize() {
