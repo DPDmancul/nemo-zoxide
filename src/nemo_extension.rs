@@ -46,14 +46,14 @@ mod imp {
 
     impl MenuProviderImpl for NemoZoxide {
         fn on_get_background_items(&self, window: &Window) {
-            let key = "nemo-zoxide-shortcut";
+            const KEY: &str = "nemo-zoxide-shortcut";
 
             gtk::init().expect("Cannot init GTK");
 
-            if unsafe { window.data::<()>(key) }.is_none() {
+            if unsafe { window.data::<()>(KEY) }.is_none() {
                 window.connect_key_press_event(on_key_press);
                 unsafe {
-                    window.set_data(key, ());
+                    window.set_data(KEY, ());
                 }
             }
         }

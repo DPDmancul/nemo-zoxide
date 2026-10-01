@@ -28,6 +28,7 @@ static REGISTERED_TYPE: OnceLock<GType> = OnceLock::new();
 #[unsafe(no_mangle)]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
+    nemo::try_initialize().expect("Cannot initialize nemo api");
     let module = unsafe { TypeModule::from_glib_none(module) };
     REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module).into_glib());
 }

@@ -22,11 +22,11 @@ use gtk::{
     Window,
     gio::{File, ffi::GFile},
 };
-use std::{ffi::c_int, fs, ptr, sync::LazyLock};
+use std::{ffi::c_int, fs, ptr, sync::OnceLock};
 
 pub mod menu_provider;
 
-static NEMO_API: LazyLock<NemoApi> = LazyLock::new(load_nemo_api);
+static NEMO_API: OnceLock<NemoApi> = OnceLock::new();
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,13 +47,26 @@ struct NemoApi {
     pub window_slot_open_location_full: NemoWindowSlotOpenLocationFull,
 }
 
+pub fn try_initialize() -> Result<(), ()> {
+    // TODO use get_or_try_init
+
+    if NEMO_API.get().is_some() {
+        return Ok(());
+    }
+
+    let api = load_nemo_api()?;
+    let _ = NEMO_API.set(api);
+
+    Ok(())
+}
+
 pub fn change_location(window: &Window, location: &File) {
-    let slot = unsafe { (NEMO_API.window_get_active_slot)(window.as_ptr() as gpointer) };
+    let slot = unsafe { (get_api().window_get_active_slot)(window.as_ptr() as gpointer) };
     let location = location.as_ptr();
 
     if !slot.0.is_null() {
         unsafe {
-            (NEMO_API.window_slot_open_location_full)(
+            (get_api().window_slot_open_location_full)(
                 slot,
                 location,
                 0, // open in current tab
@@ -65,12 +78,16 @@ pub fn change_location(window: &Window, location: &File) {
     }
 }
 
-fn load_nemo_api() -> NemoApi {
+fn get_api() -> &'static NemoApi {
+    NEMO_API.get().expect("Didn't call nemo::try_initialize")
+}
+
+fn load_nemo_api() -> Result<NemoApi, ()> {
     let exe = fs::read("/proc/self/exe").expect("failed to read Nemo executable");
     let elf = Elf::parse(&exe).expect("failed to parse Nemo ELF");
     let base = find_pie_base().expect("failed to determine Nemo PIE load base");
 
-    NemoApi {
+    Ok(NemoApi {
         window_get_active_slot: resolve_symbol::<NemoWindowGetActiveSlot>(
             &elf,
             base,
@@ -81,7 +98,7 @@ fn load_nemo_api() -> NemoApi {
             base,
             "nemo_window_slot_open_location_full",
         ),
-    }
+    })
 }
 
 fn find_pie_base() -> Option<usize> {
