@@ -183,9 +183,13 @@ fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
 
 fn search(sender: mpsc::SyncSender<Vec<PathBuf>>, query: Option<GString>) {
     spawn_blocking(move || {
+        let zoxide_res = zoxide::query(query)
+            .inspect_err(|e| log::error!("Failed to query zoxide: {}", e))
+            .unwrap_or_default();
+
         sender
-            .send(zoxide::query(query))
-            .expect("cannot send zoxide query result")
+            .send(zoxide_res)
+            .unwrap_or_else(|e| log::error!("Failed to send zoxide query result: {}", e));
     });
 }
 
@@ -234,7 +238,9 @@ fn get_row_location(row: &ListBoxRow) -> Option<&PathBuf> {
 fn change_location(window: &Window, dialog: &Dialog, location: Option<&PathBuf>) {
     if let Some(path) = location {
         nemo::change_location(window, &File::for_path(path));
-        zoxide::add(path).expect("failed to call zoxide add");
+        if let Err(e) = zoxide::add(path) {
+            log::error!("Failed to add entry to zoxide: {}", e);
+        }
     }
     dialog.close();
 }
