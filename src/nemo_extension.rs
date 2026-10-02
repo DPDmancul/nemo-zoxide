@@ -27,7 +27,11 @@ mod imp {
 
     use crate::{
         dialog,
-        nemo::menu_provider::{MenuProvider, MenuProviderImpl},
+        nemo::{
+            self,
+            menu_provider::{MenuProvider, MenuProviderImpl},
+            name_and_desc_provider::{NameAndDescProvider, NameAndDescProviderImpl},
+        },
     };
 
     #[derive(Default)]
@@ -39,10 +43,20 @@ mod imp {
         const NAME: &'static str = "NemoZoxide";
         type Type = super::NemoZoxide;
         type ParentType = glib::Object;
-        type Interfaces = (MenuProvider,);
+        type Interfaces = (NameAndDescProvider, MenuProvider);
     }
 
     impl ObjectImpl for NemoZoxide {}
+
+    impl NameAndDescProviderImpl for NemoZoxide {
+        fn get_name(&self) -> String {
+            String::from("nemo-zoxide")
+        }
+
+        fn get_desc(&self) -> String {
+            String::from("Use Zoxide to change Nemo location")
+        }
+    }
 
     impl MenuProviderImpl for NemoZoxide {
         fn on_get_background_items(&self, window: &Window) {
@@ -50,10 +64,14 @@ mod imp {
 
             gtk::init().expect("Cannot init GTK");
 
-            if unsafe { window.data::<()>(KEY) }.is_none() {
-                window.connect_key_press_event(on_key_press);
-                unsafe {
-                    window.set_data(KEY, ());
+            if let Err(e) = nemo::api::try_initialize() {
+                log::error!("Cannot initialize Nemo API: {}", e);
+            } else {
+                if unsafe { window.data::<()>(KEY) }.is_none() {
+                    window.connect_key_press_event(on_key_press);
+                    unsafe {
+                        window.set_data(KEY, ());
+                    }
                 }
             }
         }

@@ -15,3 +15,4 @@
 
 pub mod api;
 pub mod menu_provider;
+pub mod name_and_desc_provider;

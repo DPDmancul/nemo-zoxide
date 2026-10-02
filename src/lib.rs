@@ -44,12 +44,8 @@ pub extern "C" fn nemo_module_initialize(module: *mut GTypeModule) {
         }));
     });
 
-    if let Err(_e) = nemo::api::try_initialize() {
-        log::error!("Cannot initialize Nemo API");
-    } else {
-        let module = unsafe { TypeModule::from_glib_none(module) };
-        REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module).into_glib());
-    }
+    let module = unsafe { TypeModule::from_glib_none(module) };
+    REGISTERED_TYPE.get_or_init(|| NemoZoxide::register_on(&module).into_glib());
 }
 
 #[unsafe(no_mangle)]
