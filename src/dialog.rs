@@ -237,7 +237,7 @@ fn get_row_location(row: &ListBoxRow) -> Option<&PathBuf> {
 
 fn change_location(window: &Window, dialog: &Dialog, location: Option<&PathBuf>) {
     if let Some(path) = location {
-        nemo::change_location(window, &File::for_path(path));
+        nemo::api::change_location(window, &File::for_path(path));
         if let Err(e) = zoxide::add(path) {
             log::error!("Failed to add entry to zoxide: {}", e);
         }
