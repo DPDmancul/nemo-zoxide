@@ -49,12 +49,12 @@ mod imp {
     impl ObjectImpl for NemoZoxide {}
 
     impl NameAndDescProviderImpl for NemoZoxide {
-        fn get_name(&self) -> String {
-            String::from("nemo-zoxide")
+        fn get_name(&self) -> impl AsRef<str> {
+            "nemo-zoxide"
         }
 
-        fn get_desc(&self) -> String {
-            String::from("Use Zoxide to change Nemo location")
+        fn get_desc(&self) -> impl AsRef<str> {
+            "Use Zoxide to change Nemo location"
         }
     }
 

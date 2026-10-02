@@ -68,8 +68,8 @@ glib::wrapper! {
 }
 
 pub trait NameAndDescProviderImpl: ObjectImpl {
-    fn get_name(&self) -> String;
-    fn get_desc(&self) -> String;
+    fn get_name(&self) -> impl AsRef<str>;
+    fn get_desc(&self) -> impl AsRef<str>;
 }
 
 unsafe impl<T: NameAndDescProviderImpl> IsImplementable<T> for NameAndDescProvider {
@@ -88,5 +88,5 @@ extern "C" fn get_get_name_and_desc_adapter<T: NameAndDescProviderImpl>(
     let name = imp.get_name();
     let desc = imp.get_desc();
 
-    [format!("{name}:::{desc}")].to_glib_full()
+    [format!("{}:::{}", name.as_ref(), desc.as_ref())].to_glib_full()
 }
