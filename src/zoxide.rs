@@ -15,22 +15,21 @@
 
 use std::{
     ffi::OsStr,
+    io,
     os::unix::ffi::OsStrExt,
     path::PathBuf,
     process::{Command, ExitStatus},
 };
-
-use thiserror::Error;
 
 const ZOXIDE_CMD: &str = match option_env!("ZOXIDE_CMD") {
     Some(x) => x,
     None => "zoxide",
 };
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ZoxideError {
     #[error("failed to execute zoxide")]
-    Io(#[from] std::io::Error),
+    Io(#[from] io::Error),
     #[error("zoxide exited with status {0}")]
     ExitStatus(ExitStatus),
 }

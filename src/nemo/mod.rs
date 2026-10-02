@@ -22,11 +22,23 @@ use gtk::{
     Window,
     gio::{File, ffi::GFile},
 };
-use std::{ffi::c_int, fs, ptr, sync::OnceLock};
+use std::{ffi::c_int, fs, io, ptr, sync::OnceLock};
 
 pub mod menu_provider;
 
 static NEMO_API: OnceLock<NemoApi> = OnceLock::new();
+
+#[derive(Debug, thiserror::Error)]
+pub enum NemoApiError {
+    #[error("failed to read Nemo executable")]
+    ReadExe(#[from] io::Error),
+    #[error("failed to parse Nemo executable")]
+    ParseElf(#[from] goblin::error::Error),
+    #[error("could not determine Nemo PIE base address")]
+    PieBaseNotFound,
+    #[error("Nemo symbol `{0}` was not found")]
+    MissingSymbo(&'static str),
+}
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -47,8 +59,8 @@ struct NemoApi {
     pub window_slot_open_location_full: NemoWindowSlotOpenLocationFull,
 }
 
-pub fn try_initialize() -> Result<(), ()> {
-    // TODO use get_or_try_init
+pub fn try_initialize() -> Result<(), NemoApiError> {
+    // TODO use get_or_try_init when stable
 
     if NEMO_API.get().is_some() {
         return Ok(());
@@ -82,22 +94,22 @@ fn get_api() -> &'static NemoApi {
     NEMO_API.get().expect("Didn't call nemo::try_initialize")
 }
 
-fn load_nemo_api() -> Result<NemoApi, ()> {
-    let exe = fs::read("/proc/self/exe").expect("failed to read Nemo executable");
-    let elf = Elf::parse(&exe).expect("failed to parse Nemo ELF");
-    let base = find_pie_base().expect("failed to determine Nemo PIE load base");
+fn load_nemo_api() -> Result<NemoApi, NemoApiError> {
+    let exe = fs::read("/proc/self/exe")?;
+    let elf = Elf::parse(&exe)?;
+    let base = find_pie_base().ok_or(NemoApiError::PieBaseNotFound)?;
 
     Ok(NemoApi {
         window_get_active_slot: resolve_symbol::<NemoWindowGetActiveSlot>(
             &elf,
             base,
             "nemo_window_get_active_slot",
-        ),
+        )?,
         window_slot_open_location_full: resolve_symbol::<NemoWindowSlotOpenLocationFull>(
             &elf,
             base,
             "nemo_window_slot_open_location_full",
-        ),
+        )?,
     })
 }
 
@@ -135,7 +147,7 @@ fn find_pie_base() -> Option<usize> {
     None
 }
 
-fn resolve_symbol<T>(elf: &Elf<'_>, base: usize, name: &str) -> T {
+fn resolve_symbol<T>(elf: &Elf<'_>, base: usize, name: &'static str) -> Result<T, NemoApiError> {
     let sym = elf
         .syms
         .iter()
@@ -144,11 +156,11 @@ fn resolve_symbol<T>(elf: &Elf<'_>, base: usize, name: &str) -> T {
                 && sym.st_type() == sym::STT_FUNC
                 && elf.strtab.get_at(sym.st_name) == Some(name)
         })
-        .unwrap_or_else(|| panic!("Nemo symbol not found: {name}"));
+        .ok_or(NemoApiError::MissingSymbo(name))?;
 
     let address = base
         .checked_add(sym.st_value as usize)
         .unwrap_or_else(|| panic!("address overflow for {name}"));
 
-    unsafe { std::mem::transmute_copy::<usize, T>(&address) }
+    Ok(unsafe { std::mem::transmute_copy::<usize, T>(&address) })
 }
