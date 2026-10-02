@@ -22,7 +22,14 @@ use gtk::{
     Window,
     gio::{File, ffi::GFile},
 };
-use std::{ffi::c_int, fs, io, ptr, sync::OnceLock};
+use std::{
+    ffi::c_int,
+    fs,
+    io::{self, BufRead, BufReader},
+    path::Path,
+    ptr,
+    sync::OnceLock,
+};
 
 static NEMO_API: OnceLock<NemoApi> = OnceLock::new();
 
@@ -112,12 +119,11 @@ fn load_nemo_api() -> Result<NemoApi, NemoApiError> {
 }
 
 fn find_pie_base() -> Option<usize> {
-    let maps = fs::read_to_string("/proc/self/maps").ok()?;
+    let exe_path = fs::read_link("/proc/self/exe").ok()?;
 
-    let exe = fs::read_link("/proc/self/exe").ok()?;
-    let exe = exe.to_string_lossy();
-
+    let maps = BufReader::new(fs::File::open("/proc/self/maps").ok()?);
     for line in maps.lines() {
+        let line = line.ok()?;
         let mut fields = line.split_whitespace();
 
         let range = fields.next()?;
@@ -128,12 +134,12 @@ fn find_pie_base() -> Option<usize> {
 
         let path = fields.next().unwrap_or("");
 
-        if path != exe {
+        if Path::new(path) != exe_path {
             continue;
         }
 
         // We want the mapping corresponding to ELF virtual address 0.
-        if offset != "00000000" {
+        if offset.parse() != Ok(0usize) {
             continue;
         }
 
