@@ -13,7 +13,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{env, path::PathBuf, sync::mpsc};
+use std::{
+    env,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+        mpsc,
+    },
+};
 
 use glib::{ControlFlow, GString, Propagation, clone, idle_add_local, object::ObjectExt};
 use gtk::{
@@ -60,13 +68,22 @@ pub fn start(window: &Window) {
 
     // Channels
 
-    let (search_sender, search_receiver) = mpsc::sync_channel(1);
+    let (search_sender, search_receiver) = mpsc::channel();
+    let generation_counter = Arc::new(AtomicU32::new(0));
 
-    search(search_sender.clone(), None);
+    search(search_sender.clone(), generation_counter.clone(), None);
 
     // Query signals
 
-    search_entry.connect_search_changed(move |x| search(search_sender.clone(), Some(x.text())));
+    search_entry.connect_search_changed(clone!(
+        #[weak]
+        generation_counter,
+        move |x| search(
+            search_sender.clone(),
+            generation_counter.clone(),
+            Some(x.text())
+        )
+    ));
 
     // Navigation signals
 
@@ -143,8 +160,10 @@ pub fn start(window: &Window) {
         ControlFlow::Break,
         move || {
             match search_receiver.try_recv() {
-                Ok(entries) => {
-                    set_entries(&list_box, entries);
+                Ok((generation, entries)) => {
+                    if generation == generation_counter.load(Ordering::Relaxed) {
+                        set_entries(&list_box, entries);
+                    }
                     ControlFlow::Continue
                 }
                 Err(mpsc::TryRecvError::Empty) => ControlFlow::Continue,
@@ -181,14 +200,20 @@ fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
     }
 }
 
-fn search(sender: mpsc::SyncSender<Vec<PathBuf>>, query: Option<GString>) {
+fn search(
+    sender: mpsc::Sender<(u32, Vec<PathBuf>)>,
+    generation_counter: Arc<AtomicU32>,
+    query: Option<GString>,
+) {
+    let generation = generation_counter.fetch_add(1, Ordering::Relaxed) + 1;
+
     spawn_blocking(move || {
         let zoxide_res = zoxide::query(query)
             .inspect_err(|e| log::error!("Failed to query zoxide: {}", e))
             .unwrap_or_default();
 
         sender
-            .send(zoxide_res)
+            .send((generation, zoxide_res))
             .unwrap_or_else(|e| log::error!("Failed to send zoxide query result: {}", e));
     });
 }
