@@ -11,6 +11,8 @@ Use Zoxide to change Nemo location
 3. Use arrows to select the desired location
 4. Press `Enter` to change location, or `Esc` to cancel
 
+<video src="https://gitlab.com/-/project/86643873/uploads/4528e771a41b94f71428b595d83b80f7/nemo-zoxide.webm" alt="nemo-zoxide" width="825" height="574" />
+
 ## Installation
 
 ```bash
@@ -24,3 +26,4 @@ sudo install -Dm755 target/release/libnemo_zoxide.so /lib/nemo/extensions-3.0
 cargo build
 NEMO_EXTENSION_DIR=./target/debug nemo
 ```
+
