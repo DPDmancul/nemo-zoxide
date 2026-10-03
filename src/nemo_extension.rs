@@ -62,12 +62,12 @@ mod imp {
         fn on_get_background_items(&self, window: &Window) {
             const KEY: &str = "nemo-zoxide-shortcut";
 
-            gtk::init().expect("Cannot init GTK");
+            if unsafe { window.data::<()>(KEY) }.is_none() {
+                gtk::init().expect("Cannot init GTK");
 
-            if let Err(e) = nemo::api::try_initialize() {
-                log::error!("Cannot initialize Nemo API: {}", e);
-            } else {
-                if unsafe { window.data::<()>(KEY) }.is_none() {
+                if let Err(e) = nemo::api::try_initialize() {
+                    log::error!("Cannot initialize Nemo API: {}", e);
+                } else {
                     window.connect_key_press_event(on_key_press);
                     unsafe {
                         window.set_data(KEY, ());
