@@ -1,6 +1,6 @@
 [package]
 name = "nemo-zoxide"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 description = "Change Nemo location using zoxide"
 license = "AGPL-3.0-or-later"
