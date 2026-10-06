@@ -44,12 +44,14 @@ pub fn add(path: impl AsRef<OsStr>) -> Result<(), ZoxideError> {
     Ok(())
 }
 
-pub fn query(query: Option<impl AsRef<OsStr>>) -> Result<Vec<PathBuf>, ZoxideError> {
+pub fn query(
+    keywords: impl IntoIterator<Item = impl AsRef<OsStr>>,
+) -> Result<Vec<PathBuf>, ZoxideError> {
     let output = Command::new(ZOXIDE_CMD)
         .arg("query")
         .arg("-l")
         .arg("--")
-        .args(query)
+        .args(keywords)
         .output()?;
 
     if !output.status.success() {

@@ -13,17 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-    env,
-    path::PathBuf,
-    sync::{
-        Arc,
-        atomic::{AtomicU32, Ordering},
-        mpsc,
-    },
-};
-
-use glib::{ControlFlow, GString, Propagation, clone, idle_add_local, object::ObjectExt};
+use glib::{ControlFlow, Propagation, clone, idle_add_local, object::ObjectExt};
 use gtk::{
     Align, Dialog, Label, ListBox, ListBoxRow, ScrolledWindow, SearchEntry, Window,
     gdk::keys::{self},
@@ -31,6 +21,15 @@ use gtk::{
     prelude::{
         BoxExt, ContainerExt, DialogExt, EntryExt, GtkWindowExt, ListBoxExt, ListBoxRowExt,
         SearchEntryExt, WidgetExt,
+    },
+};
+use std::{
+    env,
+    path::PathBuf,
+    sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+        mpsc,
     },
 };
 
@@ -71,7 +70,11 @@ pub fn start(window: &Window) {
     let (search_sender, search_receiver) = mpsc::channel();
     let generation_counter = Arc::new(AtomicU32::new(0));
 
-    search(search_sender.clone(), generation_counter.clone(), None);
+    search(
+        search_sender.clone(),
+        generation_counter.clone(),
+        Vec::new(),
+    );
 
     // Query signals
 
@@ -81,7 +84,7 @@ pub fn start(window: &Window) {
         move |x| search(
             search_sender.clone(),
             generation_counter.clone(),
-            Some(x.text())
+            x.text().split_whitespace().map(str::to_owned).collect()
         )
     ));
 
@@ -203,7 +206,7 @@ fn select_row(list_box: &ListBox, row: Option<&ListBoxRow>) {
 fn search(
     sender: mpsc::Sender<(u32, Vec<PathBuf>)>,
     generation_counter: Arc<AtomicU32>,
-    query: Option<GString>,
+    query: Vec<String>,
 ) {
     let generation = generation_counter.fetch_add(1, Ordering::Relaxed) + 1;
 
